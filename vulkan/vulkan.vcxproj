@@ -73,8 +73,8 @@
     <LibraryPath>C:\VulkanSDK\1.0.30.0\Source\lib32;C:\Users\charp\Documents\GitHub\vulkan\libs\glfw\lib-vc2015;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LibraryPath>$(SolutionDir)/libs/glfw/lib-vc2015/;C:\VulkanSDK\1.0.30.0\Source\lib32;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(SolutionDir)/libs/glfw/include;$(SolutionDir)/libs/glm;C:\VulkanSDK\1.0.30.0\Include;$(IncludePath)</IncludePath>
+    <LibraryPath>$(SolutionDir)/libs/boost/lib;$(SolutionDir)/libs/glfw/lib-vc2015/;C:\VulkanSDK\1.0.30.0\Source\lib32;$(LibraryPath)</LibraryPath>
+    <IncludePath>$(SolutionDir)/libs/tinyobjloader;$(SolutionDir)/libs/boost/include;$(SolutionDir)/libs/glfw/include;$(SolutionDir)/libs/glm;C:\VulkanSDK\1.0.30.0\Include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -124,6 +124,15 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="model.cpp" />
+    <ClCompile Include="object.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="any.h" />
+    <ClInclude Include="model.h" />
+    <ClInclude Include="object.h" />
+    <ClInclude Include="renderer.h" />
+    <ClInclude Include="scene.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

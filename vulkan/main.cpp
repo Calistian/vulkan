@@ -1,25 +1,13 @@
 #include <iostream>
-#include <vulkan/vulkan.h>
+#include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
+#include <iostream>
 
 using namespace std;
 
 int main()
 {
-	glfwInit();
-
-	uint32_t count;
-	vkEnumerateInstanceExtensionProperties(nullptr, &count, nullptr);
-
-	cout << count << " extensions" << endl;
-
-	GLFWwindow* window = glfwCreateWindow(800, 600, "Vulkan", nullptr, nullptr);
-
-	while (!glfwWindowShouldClose(window))
-		glfwPollEvents();
-
-	glfwDestroyWindow(window);
-
-	glfwTerminate();
+	
+	system("pause");
 	return 0;
 }
