@@ -5,8 +5,8 @@
 
 struct light
 {
-	enum class lighttype {POINT, SUN, SPOT};
-	lighttype type;
+	enum class light_type {POINT = 0, SUN = 1, SPOT = 2};
+	light_type type;
 	glm::vec3 pos;
 	glm::vec3 dir;
 	glm::vec3 ambiant;

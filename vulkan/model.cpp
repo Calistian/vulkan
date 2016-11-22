@@ -7,25 +7,25 @@ using namespace std;
 
 static void add_vertex(void* vmesh, float x, float y, float z, float)
 {
-	model* m = static_cast<model*>(vmesh);
+	auto* m = static_cast<model*>(vmesh);
 	m->vertices.push_back(glm::vec3(x, y, z));
 }
 
 static void add_normal(void* vmesh, float x, float y, float z)
 {
-	model* m = static_cast<model*>(vmesh);
+	auto* m = static_cast<model*>(vmesh);
 	m->normals.push_back(glm::vec3(x, y, z));
 }
 
 static void add_tex_coord(void* vmesh, float x, float y, float)
 {
-	model* m = static_cast<model*>(vmesh);
+	auto* m = static_cast<model*>(vmesh);
 	m->text_coords.push_back(glm::vec2(x, y));
 }
 
 static void add_indice(void* vmesh, tinyobj::index_t* index, int num_index)
 {
-	model* m = static_cast<model*>(vmesh);
+	auto* m = static_cast<model*>(vmesh);
 	m->indices.push_back(index->vertex_index);
 }
 

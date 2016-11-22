@@ -74,7 +74,7 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <LibraryPath>$(SolutionDir)/libs/boost/lib;$(SolutionDir)/libs/glfw/lib-vc2015/;C:\VulkanSDK\1.0.30.0\Source\lib32;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(SolutionDir)/libs/tinyobjloader;$(SolutionDir)/libs/boost/include;$(SolutionDir)/libs/glfw/include;$(SolutionDir)/libs/glm;C:\VulkanSDK\1.0.30.0\Include;$(IncludePath)</IncludePath>
+    <IncludePath>$(ProjectDir);$(SolutionDir)/libs/tinyobjloader;$(SolutionDir)/libs/boost/include;$(SolutionDir)/libs/glfw/include;$(SolutionDir)/libs/glm;C:\VulkanSDK\1.0.30.0\Include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -83,7 +83,7 @@
       <SDLCheck>true</SDLCheck>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;vulkan-1.lib;VKstatic.1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -126,6 +126,8 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="model.cpp" />
     <ClCompile Include="object.cpp" />
+    <ClCompile Include="vulkan\env.cpp" />
+    <ClCompile Include="vulkan\vulkan_renderer.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="any.h" />
@@ -133,6 +135,8 @@
     <ClInclude Include="object.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="scene.h" />
+    <ClInclude Include="vulkan\env.h" />
+    <ClInclude Include="vulkan\vulkan_renderer.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
