@@ -8,6 +8,10 @@ static vector<const char*> debug_instance_layers = {
 	"VK_LAYER_LUNARG_standard_validation"
 };
 
+static vector<const char*> debug_instance_extensions = {
+	VK_EXT_DEBUG_REPORT_EXTENSION_NAME
+};
+
 static vk::Instance create_instance(bool debug)
 {
 	vk::ApplicationInfo app_info;
@@ -22,9 +26,10 @@ static vk::Instance create_instance(bool debug)
 	for (uint32_t i = 0; i < glfw_extension_count; i++)
 		extensions.push_back(glfw_extensions[i]);
 
-	// Add verification layer if debug
+	// Add verification layer and extension if debug
 	if (debug)
 	{
+		extensions.insert(end(extensions), begin(debug_instance_extensions), end(debug_instance_extensions));
 		layers.insert(end(layers), begin(debug_instance_layers), end(debug_instance_layers));
 	}
 
@@ -47,14 +52,20 @@ static vk::Instance create_instance(bool debug)
 env::env(GLFWwindow* window, bool debug)
 {
 	instance = create_instance(debug);
+	create_debug_callback = nullptr;
+	destroy_debug_callback = nullptr;
 	if (debug)
 		init_instance_debug_callbacks();
 }
 
 env::~env()
 {
-	instance.destroyDebugReportCallbackEXT(debug_callbacks);
-	instance.destroy();
+	if(destroy_debug_callback != nullptr)
+		destroy_debug_callback((VkInstance)instance, debug_callbacks, nullptr);
+	if (device)
+		device.destroy();
+	if(instance)
+		instance.destroy();
 }
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
@@ -65,18 +76,27 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debug_callback(
 	int32_t code,
 	const char* layerPrefix,
 	const char* msg,
-	void* userData) {
+	void* userData)
+{
 
-	std::cerr << "Vulkan Error : " << msg << std::endl;
+	cerr << "Vulkan Error : " << msg << endl;
 
 	return VK_FALSE;
 }
 
 void env::init_instance_debug_callbacks()
 {
-	vk::DebugReportCallbackCreateInfoEXT create_info;
+	VkDebugReportCallbackCreateInfoEXT create_info;
+
+	create_debug_callback = (PFN_vkCreateDebugReportCallbackEXT)instance.getProcAddr("vkCreateDebugReportCallbackEXT");
+	destroy_debug_callback = (PFN_vkDestroyDebugReportCallbackEXT)instance.getProcAddr("vkDestroyDebugReportCallbackEXT");
+	if (create_debug_callback == nullptr || destroy_debug_callback == nullptr)
+		throw runtime_error("Can't get debug report callback functions");
+
+	create_info.sType = VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
 	create_info.pfnCallback = debug_callback;
-	create_info.flags = vk::DebugReportFlagBitsEXT::eError | vk::DebugReportFlagBitsEXT::eWarning;
-	if (instance.createDebugReportCallbackEXT(&create_info, nullptr, &debug_callbacks) != vk::Result::eSuccess)
+	create_info.flags = VK_DEBUG_REPORT_WARNING_BIT_EXT | VK_DEBUG_REPORT_ERROR_BIT_EXT;
+
+	if (create_debug_callback((VkInstance)instance, &create_info, nullptr, &debug_callbacks) != VK_SUCCESS)
 		throw runtime_error("Can't create debug callbacks");
 }

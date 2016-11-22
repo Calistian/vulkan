@@ -12,7 +12,9 @@ namespace vulkan
 		vk::Device device;
 		vk::Queue render_queue;
 		vk::Queue display_queue;
-		vk::DebugReportCallbackEXT debug_callbacks;
+		VkDebugReportCallbackEXT debug_callbacks;
+		PFN_vkCreateDebugReportCallbackEXT create_debug_callback;
+		PFN_vkDestroyDebugReportCallbackEXT destroy_debug_callback;
 
 		env(GLFWwindow* window, bool debug);
 		~env();
