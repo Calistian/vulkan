@@ -53,5 +53,8 @@
     <ClInclude Include="vulkan\env.h">
       <Filter>Header Files\vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="vulkan\util.h">
+      <Filter>Header Files\vulkan</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <windows.h>
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
@@ -15,11 +16,14 @@ namespace vulkan
 		VkDebugReportCallbackEXT debug_callbacks;
 		PFN_vkCreateDebugReportCallbackEXT create_debug_callback;
 		PFN_vkDestroyDebugReportCallbackEXT destroy_debug_callback;
+		VkSurfaceKHR surface;
 
 		env(GLFWwindow* window, bool debug);
 		~env();
 
 	private:
 		void init_instance_debug_callbacks();
+		void choose_device(bool debug);
+		void create_surface(GLFWwindow* window);
 	};
 }
