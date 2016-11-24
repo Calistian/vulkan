@@ -129,6 +129,7 @@
     <ClCompile Include="object.cpp" />
     <ClCompile Include="vulkan\env.cpp" />
     <ClCompile Include="vulkan\vulkan_renderer.cpp" />
+    <ClCompile Include="vulkan\vulkan_shader.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="any.h" />
@@ -139,6 +140,7 @@
     <ClInclude Include="vulkan\env.h" />
     <ClInclude Include="vulkan\util.h" />
     <ClInclude Include="vulkan\vulkan_renderer.h" />
+    <ClInclude Include="vulkan\vulkan_shader.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

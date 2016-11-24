@@ -30,6 +30,9 @@
     <ClCompile Include="vulkan\vulkan_renderer.cpp">
       <Filter>Source Files\vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="vulkan\vulkan_shader.cpp">
+      <Filter>Source Files\vulkan</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="any.h">
@@ -54,6 +57,9 @@
       <Filter>Header Files\vulkan</Filter>
     </ClInclude>
     <ClInclude Include="vulkan\util.h">
+      <Filter>Header Files\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="vulkan\vulkan_shader.h">
       <Filter>Header Files\vulkan</Filter>
     </ClInclude>
   </ItemGroup>
