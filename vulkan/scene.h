@@ -14,6 +14,7 @@ struct light
 	glm::vec3 specular;
 	glm::vec3 attenuation;
 	float angle;
+	any user_data;
 };
 
 struct scene
@@ -22,4 +23,5 @@ struct scene
 	glm::mat4 projection;
 	std::vector<light> lights;
 	std::vector<object> objects;
+	any user_data;
 };

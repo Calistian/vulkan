@@ -10,9 +10,11 @@ void vulkan_renderer::init(GLFWwindow* window)
 	_env = std::make_unique<env>(window, _debug);
 }
 
-void vulkan_renderer::init_models(std::vector<model>& models)
+void vulkan_renderer::init_scene(scene& scene)
 {
+	
 }
+
 
 void vulkan_renderer::render(const scene& scene)
 {

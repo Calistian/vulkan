@@ -1,6 +1,5 @@
 #pragma once
 
-#include <windows.h>
 #include <vulkan/vulkan.hpp>
 #include <GLFW/glfw3.h>
 
@@ -17,6 +16,11 @@ namespace vulkan
 		PFN_vkCreateDebugReportCallbackEXT create_debug_callback;
 		PFN_vkDestroyDebugReportCallbackEXT destroy_debug_callback;
 		VkSurfaceKHR surface;
+		vk::SwapchainKHR swapchain;
+		vk::Extent2D swapchain_extent;
+		vk::Format swapchain_image_format;
+		std::vector<vk::Image> swapchain_images;
+		std::vector<vk::ImageView> swapchain_image_views;
 
 		env(GLFWwindow* window, bool debug);
 		~env();
@@ -25,5 +29,8 @@ namespace vulkan
 		void init_instance_debug_callbacks();
 		void choose_device(bool debug);
 		void create_surface(GLFWwindow* window);
+		void create_swapchain(GLFWwindow* window);
+		void create_swapchain_image_views();
+		void create_pipeline();	
 	};
 }

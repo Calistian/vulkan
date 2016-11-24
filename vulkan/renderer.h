@@ -11,7 +11,7 @@ public:
 
 	virtual void init(GLFWwindow* window) = 0;
 
-	virtual void init_models(std::vector<model>& models) = 0;
+	virtual void init_scene(scene& sc) = 0;
 
 	virtual void render(const scene& scene) = 0;
 };

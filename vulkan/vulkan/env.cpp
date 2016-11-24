@@ -62,18 +62,24 @@ env::env(GLFWwindow* window, bool debug)
 	destroy_debug_callback = nullptr;
 	if (debug)
 		init_instance_debug_callbacks();
-	choose_device(debug);
 	create_surface(window);
+	choose_device(debug);
+	create_swapchain(window);
+	create_swapchain_image_views();
 }
 
 env::~env()
 {
 	if(destroy_debug_callback)
 		destroy_debug_callback((VkInstance)instance, debug_callbacks, nullptr);
-	if (surface)
-		vkDestroySurfaceKHR((VkInstance)instance, surface, nullptr);
+	for (auto view : swapchain_image_views)
+		device.destroyImageView(view);
+	if (swapchain)
+		device.destroySwapchainKHR(swapchain);
 	if (device)
 		device.destroy();
+	if (surface)
+		instance.destroySurfaceKHR(surface);
 	if(instance)
 		instance.destroy();
 }
@@ -111,41 +117,22 @@ void env::init_instance_debug_callbacks()
 
 void env::choose_device(bool debug)
 {
-	auto available_devices = instance.enumeratePhysicalDevices();
-	auto considered = vector<pair<uint32_t, vk::PhysicalDevice>>();
-
-	for(auto pdev : available_devices)
-	{
-		uint32_t score = 0;
-		auto properties = pdev.getProperties();
-
-		if (properties.deviceType == vk::PhysicalDeviceType::eDiscreteGpu)
-			score += 100;
-
-		considered.push_back(make_pair(score, pdev));
-	}
-
-	if (size(considered) == 0)
-		throw runtime_error("No available physical devices");
-
-	auto it = max_element(begin(considered), end(considered), [](pair<uint32_t, vk::PhysicalDevice> p1, pair<uint32_t, vk::PhysicalDevice> p2)
-	{
-		return p1.first < p2.first;
-	});
-
-	physical_device = it->second;
+	physical_device = instance.enumeratePhysicalDevices()[0];
 
 	auto render_queue_index = -1;
 	auto display_queue_index = -1;
 
 	auto queues = physical_device.getQueueFamilyProperties();
-	for(auto i = 0; i < size(queues); i++)
+	for(auto i = 0u; i < size(queues); i++)
 	{
 		if (queues[i].queueCount == 0)
 			continue;
 		if (queues[i].queueFlags & vk::QueueFlagBits::eGraphics)
 		{
 			render_queue_index = i;
+		}
+		if(physical_device.getSurfaceSupportKHR(i, surface))
+		{
 			display_queue_index = i;
 		}
 	}
@@ -182,6 +169,8 @@ void env::choose_device(bool debug)
 	create_info.pEnabledFeatures = &features;
 	create_info.ppEnabledLayerNames = data(debug_layers);
 	create_info.enabledLayerCount = size(debug_layers);
+	create_info.ppEnabledExtensionNames = data(device_extensions);
+	create_info.enabledExtensionCount = size(device_extensions);
 
 	physical_device.createDevice(&create_info, nullptr, &device);
 
@@ -201,4 +190,84 @@ void env::create_surface(GLFWwindow* window)
 
 	if (create((VkInstance)instance, &create_info, nullptr, &surface) != VK_SUCCESS)
 		throw runtime_error("Could not create window");
+}
+
+static vk::SurfaceFormatKHR choose_swapchain_format(const vector<vk::SurfaceFormatKHR>& formats)
+{
+	for (const auto& f : formats)
+	{
+		if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
+			return f;
+	}
+	return formats[0];
+}
+
+static vk::PresentModeKHR choose_present_mode(const vector<vk::PresentModeKHR>& modes)
+{
+	for (const auto& m : modes)
+	{
+		if (m == vk::PresentModeKHR::eMailbox)
+			return m;
+	}
+	return vk::PresentModeKHR::eFifo;
+}
+
+void env::create_swapchain(GLFWwindow* window)
+{
+	int width, height;
+	glfwGetWindowSize(window, &width, &height);
+	auto capabilities = physical_device.getSurfaceCapabilitiesKHR(surface);
+	swapchain_extent = vk::Extent2D{ uint32_t(width), uint32_t(height) };
+
+	swapchain_extent.width = max(capabilities.minImageExtent.width, min(capabilities.maxImageExtent.width, swapchain_extent.width));
+	swapchain_extent.height = max(capabilities.minImageExtent.height, min(capabilities.maxImageExtent.height, swapchain_extent.height));
+
+	auto format = choose_swapchain_format(physical_device.getSurfaceFormatsKHR(surface));
+	auto present_mode = choose_present_mode(physical_device.getSurfacePresentModesKHR(surface));
+	
+	swapchain_image_format = format.format;
+
+	vk::SwapchainCreateInfoKHR create_info;
+	create_info.surface = surface;
+	create_info.minImageCount = capabilities.minImageCount + 1;
+	if (capabilities.maxImageCount > 0 && create_info.minImageCount > capabilities.maxImageCount)
+		create_info.minImageCount = capabilities.maxImageCount;
+	create_info.imageExtent = swapchain_extent;
+	create_info.imageFormat = swapchain_image_format;
+	create_info.imageColorSpace = format.colorSpace;
+	create_info.presentMode = present_mode;
+	create_info.imageArrayLayers = 1;
+	create_info.imageUsage = vk::ImageUsageFlagBits::eColorAttachment;
+	if (render_queue == display_queue)
+		create_info.imageSharingMode = vk::SharingMode::eExclusive;
+	else
+		create_info.imageSharingMode = vk::SharingMode::eConcurrent;
+	create_info.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
+	create_info.clipped = true;
+	if (device.createSwapchainKHR(&create_info, nullptr, &swapchain) != vk::Result::eSuccess)
+		throw runtime_error("Could not create swapchain");
+	swapchain_images = device.getSwapchainImagesKHR(swapchain);
+}
+
+void env::create_swapchain_image_views()
+{
+	swapchain_image_views.resize(size(swapchain_images));
+	for (auto i = 0u; i < size(swapchain_images); i++)
+	{
+		vk::ImageViewCreateInfo create_info;
+		create_info.image = swapchain_images[i];
+		create_info.viewType = vk::ImageViewType::e2D;
+		create_info.format = swapchain_image_format;
+		create_info.components.r = vk::ComponentSwizzle::eIdentity;
+		create_info.components.g = vk::ComponentSwizzle::eIdentity;
+		create_info.components.b = vk::ComponentSwizzle::eIdentity;
+		create_info.components.a = vk::ComponentSwizzle::eIdentity;
+		create_info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eColor;
+		create_info.subresourceRange.baseMipLevel = 0;
+		create_info.subresourceRange.levelCount = 1;
+		create_info.subresourceRange.baseArrayLayer = 0;
+		create_info.subresourceRange.layerCount = 1;
+		if (device.createImageView(&create_info, nullptr, &swapchain_image_views[i]) != vk::Result::eSuccess)
+			throw runtime_error("Could not create image view");
+	}
 }

@@ -17,7 +17,7 @@ namespace vulkan
 
 		void init(GLFWwindow* window) override;
 
-		void init_models(std::vector<model>& models) override;
+		void init_scene(scene& scene) override;
 
 		void render(const scene& scene) override;
 
