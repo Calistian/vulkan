@@ -21,6 +21,8 @@ namespace vulkan
 		vk::Format swapchain_image_format;
 		std::vector<vk::Image> swapchain_images;
 		std::vector<vk::ImageView> swapchain_image_views;
+		vk::ShaderModule vertex_shader;
+		vk::ShaderModule fragment_shader;
 
 		env(GLFWwindow* window, bool debug);
 		~env();

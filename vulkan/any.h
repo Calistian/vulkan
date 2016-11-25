@@ -59,9 +59,9 @@ public:
 	any()
 		: _value(nullptr) {}
 	any(const any& a)
-		: _value(a._value->clone()) {}
+		: _value(a._value ? a._value->clone() : nullptr) {}
 	any(any& a)
-		: _value(a._value->clone()) {}
+		: _value(a._value ? a._value->clone() : nullptr) {}
 	template<typename T>
 	any(const T& t)
 		: _value(new any_value<T>(t)) {}
@@ -81,13 +81,13 @@ public:
 	any& operator=(const any& a)
 	{
 		delete _value;
-		_value = a._value->clone();
+		_value = a._value ? a._value->clone() : nullptr;
 		return *this;
 	}
 	any& operator=(any& a)
 	{
 		delete _value;
-		_value = a._value->clone();
+		_value = a._value ? a._value->clone() : nullptr;
 		return *this;
 	}
 	template<typename T>

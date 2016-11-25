@@ -14,4 +14,6 @@ public:
 	virtual void init_scene(scene& sc) = 0;
 
 	virtual void render(const scene& scene) = 0;
+
+	virtual void cleanup(scene& sc) = 0;
 };

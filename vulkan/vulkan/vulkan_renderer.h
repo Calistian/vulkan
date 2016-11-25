@@ -21,7 +21,12 @@ namespace vulkan
 
 		void render(const scene& scene) override;
 
+		void cleanup(scene& scene) override;
+
 	private:
+
+		vk::PipelineShaderStageCreateInfo create_shader(const std::string& source, vk::ShaderStageFlagBits stage);
+
 		bool _debug;
 		std::unique_ptr<env> _env;
 	};

@@ -131,10 +131,12 @@ void env::choose_device(bool debug)
 		{
 			render_queue_index = i;
 		}
-		if(physical_device.getSurfaceSupportKHR(i, surface))
+		if (physical_device.getSurfaceSupportKHR(i, surface))
 		{
 			display_queue_index = i;
 		}
+		if (render_queue_index != -1 && display_queue_index != -1)
+			break;
 	}
 
 	if (render_queue_index == -1)
@@ -194,6 +196,8 @@ void env::create_surface(GLFWwindow* window)
 
 static vk::SurfaceFormatKHR choose_swapchain_format(const vector<vk::SurfaceFormatKHR>& formats)
 {
+	if (size(formats) == 0)
+		throw runtime_error("No formats to choose from");
 	for (const auto& f : formats)
 	{
 		if (f.format == vk::Format::eB8G8R8A8Unorm && f.colorSpace == vk::ColorSpaceKHR::eSrgbNonlinear)
@@ -204,6 +208,8 @@ static vk::SurfaceFormatKHR choose_swapchain_format(const vector<vk::SurfaceForm
 
 static vk::PresentModeKHR choose_present_mode(const vector<vk::PresentModeKHR>& modes)
 {
+	if (size(modes) == 0)
+		throw runtime_error("No modes to choose from");
 	for (const auto& m : modes)
 	{
 		if (m == vk::PresentModeKHR::eMailbox)
@@ -242,8 +248,9 @@ void env::create_swapchain(GLFWwindow* window)
 		create_info.imageSharingMode = vk::SharingMode::eExclusive;
 	else
 		create_info.imageSharingMode = vk::SharingMode::eConcurrent;
+	create_info.preTransform = capabilities.currentTransform;
 	create_info.compositeAlpha = vk::CompositeAlphaFlagBitsKHR::eOpaque;
-	create_info.clipped = true;
+	create_info.clipped = VK_TRUE;
 	if (device.createSwapchainKHR(&create_info, nullptr, &swapchain) != vk::Result::eSuccess)
 		throw runtime_error("Could not create swapchain");
 	swapchain_images = device.getSwapchainImagesKHR(swapchain);

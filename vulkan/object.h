@@ -1,16 +1,17 @@
 #pragma once
 
 #include "model.h"
+#include <memory>
 
 struct shader
 {
-	const std::string filename;
+	std::string filename;
 	any user_data;
 };
 
 struct object
 {
-	model* model;
+	std::shared_ptr<model> model;
 	glm::mat4 trans;
 	shader vertex_shader;
 	shader fragment_shader;
