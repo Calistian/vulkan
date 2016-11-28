@@ -90,9 +90,9 @@ int main()
 		render_end = clock();
 		total += float(render_end - render_begin) / CLOCKS_PER_SEC;
 		glfwPollEvents();
-		if (counter == 100)
+		if (total >= 1.f)
 		{
-			total /= 100;
+			total /= counter;
 			cout << "FPS : " << 1 / total << endl;
 			total = 0;
 			counter = 0;

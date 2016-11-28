@@ -46,7 +46,7 @@ vec4 point_light()
 	float dist = length(dir);
 	dir = -normalize(dir);
 	float a = dot(dir, vec4(normal, 0));
-	//result += a * ubo.material.diffuse * ubo.point.diffuse / (ubo.point.attenuation[0] + ubo.point.attenuation[1] * dist + ubo.point.attenuation[2] * dist * dist);
+	result += a * ubo.material.diffuse * ubo.point.diffuse / (ubo.point.attenuation[0] + ubo.point.attenuation[1] * dist + ubo.point.attenuation[2] * dist * dist);
 
 	vec4 V = vec4(position, 1) - ubo.point.pos;
 	dist = length(V);
@@ -54,7 +54,7 @@ vec4 point_light()
 	vec3 R = reflect(vec3(V), normal);
 	vec4 E = normalize(vec4(position, 1) - ubo.eye);
 	a = dot(R, vec3(E));
-	//result += pow(a, ubo.material.hardness.x) * ubo.material.specular * ubo.point.specular / (ubo.point.attenuation[0] + ubo.point.attenuation[1] * dist + ubo.point.attenuation[2] * dist * dist);
+	result += pow(a, ubo.material.hardness.x) * ubo.material.specular * ubo.point.specular / (ubo.point.attenuation[0] + ubo.point.attenuation[1] * dist + ubo.point.attenuation[2] * dist * dist);
 
 	return vec4(result.xyz, 1);
 }
