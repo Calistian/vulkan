@@ -3,6 +3,7 @@
 #include <vulkan/vulkan_renderer.h>
 #include "scene.h"
 #include <glm/gtx/transform.hpp>
+#include <ctime>
 
 using namespace std;
 
@@ -20,17 +21,16 @@ static unique_ptr<scene> create_scene(renderer* rend)
 {
 	auto sc = make_unique<scene>();
 
-	sc->projection = glm::perspective<float>(glm::radians<float>(45), ASPECT, 0.1f, 1000.f);
-	sc->view = glm::lookAt(glm::vec3(3, 3, 3), glm::vec3(), glm::vec3(0, 1, 0));
+	sc->projection = glm::perspective<float>(glm::radians<float>(70), ASPECT, 0.1f, 1000.f);
+	sc->view = glm::lookAt(glm::vec3(20, 20, 20), glm::vec3(), glm::vec3(0, 1, 0));
 	sc->projection[1][1] *= -1;
 
-	light point;
-	point.pos = glm::vec3(0, 1, 0);
-	point.ambiant = glm::vec3(0.1, 0.1, 0.1);
-	point.diffuse = glm::vec3(0.8, 0.8, 0.8);
-	point.specular = glm::vec3(1, 1, 1);
-	point.type = light::light_type::POINT;
-	sc->lights.push_back(point);
+	sc->point.ambiant = glm::vec4(0.2, 0.2, 0.2, 1);
+	sc->point.diffuse = glm::vec4(0.8, 0.8, 0.8, 1);
+	sc->point.specular = glm::vec4(1, 1, 1, 1);
+	sc->point.pos = glm::vec4(20, 20, 20, 1);
+	sc->point.attenuation = glm::vec4(1, 0.001, 0.001, 0);
+	sc->eye = glm::vec4(20, 20, 20, 1);
 
 	/*
 	 * const std::vector<Vertex> vertices = {
@@ -41,29 +41,18 @@ static unique_ptr<scene> create_scene(renderer* rend)
 };
 	 */
 
-	object sphere;
-	//sphere.model = make_shared<model>();//make_shared<model>(load_model_from_file("models/sphere.obj"));
-	//sphere.model->vertices = {
-	//	{ -0.5f, 0.f, -0.5f },
-	//	{ 0.5f, 0.f, -0.5f },
-	//	{ 0.5f, 0.f, 0.5f },
-	//	{ -0.5f, 0.f, 0.5f }
-	//};
-	//sphere.model->normals = {
-	//	{ 1, 0, 0 },
-	//	{ 0, 1, 0 },
-	//	{ 0, 0, 1 },
-	//	{ 1, 1, 1 },
-	//};
-	//sphere.model->indices = {
-	//	0, 1, 2, 2, 3, 0
-	//};
-	sphere.model = make_shared<model>(load_model_from_file("models/sphere.obj"));
-	sphere.vertex_shader.filename = "shaders/sphere.vert";
-	sphere.fragment_shader.filename = "shaders/sphere.frag";
-	//sphere.rotate(glm::radians<float>(45), glm::vec3(0, 0, 1));
+	object venus;
+	venus.model = make_shared<model>(load_model_from_file("models/venus.obj"));
+	venus.vertex_shader.filename = "shaders/sphere.vert";
+	venus.fragment_shader.filename = "shaders/sphere.frag";
+	venus.material.ambiant = glm::vec4(1, 1, 1, 1);
+	venus.material.diffuse = glm::vec4(1, 1, 1, 1);
+	venus.material.specular = glm::vec4(1, 1, 1, 1);
+	venus.material.hardness.x = 50.f;
 
-	sc->objects.push_back(move(sphere));
+	venus.translate(glm::vec3(0, -2, 0));
+
+	sc->objects.push_back(move(venus));
 
 	return sc;
 }
@@ -81,13 +70,35 @@ int main()
 	unique_ptr<renderer> rend = make_unique<vulkan::vulkan_renderer>(true);
 	auto sc = create_scene(rend.get());
 
+	clock_t init_begin, init_end;
+
+	init_begin = clock();
 	rend->init(window);
 	rend->init_scene(*sc);
+	init_end = clock();
+
+	cout << "Initialization time : " << float(init_end - init_begin) / CLOCKS_PER_SEC << "s" << endl;
+
+	int counter = 0;
+	float total = 0;
 
 	while (!glfwWindowShouldClose(window))
 	{
+		clock_t render_begin, render_end;
+		render_begin = clock();
 		rend->render(*sc);
+		render_end = clock();
+		total += float(render_end - render_begin) / CLOCKS_PER_SEC;
 		glfwPollEvents();
+		if (counter == 100)
+		{
+			total /= 100;
+			cout << "FPS : " << 1 / total << endl;
+			total = 0;
+			counter = 0;
+		}
+		else
+			counter++;
 	}
 
 	rend->cleanup(*sc);

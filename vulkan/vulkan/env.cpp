@@ -434,13 +434,13 @@ void env::create_descriptor_pool()
 	vk::DescriptorPoolSize pool_size;
 
 	pool_size.type = vk::DescriptorType::eUniformBuffer;
-	pool_size.descriptorCount = 1;
+	pool_size.descriptorCount = 10;
 
 	vk::DescriptorPoolCreateInfo create_info;
 
 	create_info.poolSizeCount = 1;
 	create_info.pPoolSizes = &pool_size;
-	create_info.maxSets = 1;
+	create_info.maxSets = 10;
 
 	if (device.createDescriptorPool(&create_info, nullptr, &descriptor_pool) != vk::Result::eSuccess)
 		throw runtime_error("Failed to create descriptor pool");

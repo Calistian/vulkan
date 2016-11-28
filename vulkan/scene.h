@@ -5,23 +5,23 @@
 
 struct light
 {
-	enum class light_type {POINT = 0, SUN = 1, SPOT = 2};
-	light_type type;
-	glm::vec3 pos;
-	glm::vec3 dir;
-	glm::vec3 ambiant;
-	glm::vec3 diffuse;
-	glm::vec3 specular;
-	glm::vec3 attenuation;
-	float angle;
-	any user_data;
+	glm::vec4 pos;
+	glm::vec4 ambiant;
+	glm::vec4 diffuse;
+	glm::vec4 specular;
+	glm::vec4 attenuation;
+	glm::vec4 dir;
+	glm::vec4 angle;
 };
 
 struct scene
 {
 	glm::mat4 view;
 	glm::mat4 projection;
-	std::vector<light> lights;
+	light point;
+	light sun;
+	light spot;
+	glm::vec4 eye;
 	std::vector<object> objects;
 	any user_data;
 };

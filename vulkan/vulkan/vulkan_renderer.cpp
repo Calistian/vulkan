@@ -9,6 +9,11 @@ struct uniform_buffer_object {
 	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 proj;
+	material material;
+	light point;
+	light sun;
+	light spot;
+	glm::vec4 eye;
 };
 
 struct object_vulkan_data
@@ -132,11 +137,16 @@ void vulkan_renderer::init_scene(scene& scene)
 
 			obj.model->user_data = model_data;
 		}
+		else
+			model_data = any_cast<model_vulkan_data>(obj.model->user_data);
 
 		uniform_buffer_object ubo;
 		ubo.model = obj.trans;
 		ubo.proj = scene.projection;
 		ubo.view = scene.view;
+		ubo.point = scene.point;
+		ubo.material = obj.material;
+		ubo.eye = scene.eye;
 		
 		_env->create_memory(sizeof(uniform_buffer_object), object_data.ubo_buffer, object_data.ubo_memory, &ubo, vk::BufferUsageFlagBits::eUniformBuffer);
 
@@ -338,9 +348,16 @@ void vulkan_renderer::render(const scene& scene)
 	submit_info.signalSemaphoreCount = 1;
 	submit_info.pSignalSemaphores = &_env->render_finished_semaphore;
 
-	submit_info.commandBufferCount = 1;
-	vector<vk::CommandBuffer> buffer = any_cast<object_vulkan_data>(scene.objects[0].user_data).command_buffers;
-	submit_info.pCommandBuffers = &buffer[image_index];
+	vector<vk::CommandBuffer> command_buffers;
+
+	for(auto& obj : scene.objects)
+	{
+		object_vulkan_data obj_data = any_cast<object_vulkan_data>(obj.user_data);
+		command_buffers.push_back(obj_data.command_buffers[image_index]);
+	}
+
+	submit_info.commandBufferCount = size(command_buffers);
+	submit_info.pCommandBuffers = data(command_buffers);
 
 	if (_env->display_queue.submit(1, &submit_info, vk::Fence()) != vk::Result::eSuccess)
 		throw runtime_error("Failed to display");
@@ -372,6 +389,7 @@ void vulkan_renderer::cleanup(scene& scene)
 			_env->device.destroyBuffer(model_data.normal_buffer);
 			_env->device.destroyBuffer(model_data.index_buffer);
 		}
+		obj.model->user_data.clear();
 
 		auto object_data = any_cast<object_vulkan_data>(obj.user_data);
 
