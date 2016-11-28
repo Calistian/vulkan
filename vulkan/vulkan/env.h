@@ -11,7 +11,9 @@ namespace vulkan
 		vk::PhysicalDevice physical_device;
 		vk::Device device;
 		vk::Queue render_queue;
+		int render_queue_index;
 		vk::Queue display_queue;
+		int display_queue_index;
 		VkDebugReportCallbackEXT debug_callbacks;
 		PFN_vkCreateDebugReportCallbackEXT create_debug_callback;
 		PFN_vkDestroyDebugReportCallbackEXT destroy_debug_callback;
@@ -21,8 +23,15 @@ namespace vulkan
 		vk::Format swapchain_image_format;
 		std::vector<vk::Image> swapchain_images;
 		std::vector<vk::ImageView> swapchain_image_views;
-		vk::ShaderModule vertex_shader;
-		vk::ShaderModule fragment_shader;
+		std::vector<vk::Framebuffer> framebuffers;
+		vk::CommandPool render_command_pool;
+		vk::RenderPass render_pass;
+		vk::Semaphore image_available_semaphore;
+		vk::Semaphore render_finished_semaphore;
+		vk::DescriptorPool descriptor_pool;
+		vk::DeviceMemory depth_memory;
+		vk::Image depth_image;
+		vk::ImageView depth_image_view;
 
 		env(GLFWwindow* window, bool debug);
 		~env();
@@ -33,6 +42,10 @@ namespace vulkan
 		void create_surface(GLFWwindow* window);
 		void create_swapchain(GLFWwindow* window);
 		void create_swapchain_image_views();
-		void create_pipeline();	
+		void create_depth_image();
+		void create_render_pass();
+		void create_command_pool();
+		void create_descriptor_pool();
+		void create_semaphores();
 	};
 }

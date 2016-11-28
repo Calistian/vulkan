@@ -1,10 +1,40 @@
 #include "vulkan_renderer.h"
 #include <sstream>
 #include <fstream>
-#include <random>
 
 using namespace vulkan;
 using namespace std;
+
+struct uniform_buffer_object {
+	glm::mat4 model;
+	glm::mat4 view;
+	glm::mat4 proj;
+};
+
+struct object_vulkan_data
+{
+	vk::Pipeline pipeline;
+	vk::PipelineLayout pipeline_layout;
+	vector<vk::CommandBuffer> command_buffers;
+	vk::Buffer ubo_buffer;
+	vk::DeviceMemory ubo_memory;
+	vk::DescriptorSetLayout descriptor_set_layout;
+	vk::DescriptorSet descriptor_set;
+};
+
+struct model_vulkan_data
+{
+	vk::VertexInputAttributeDescription vertex;
+	vk::VertexInputAttributeDescription normal;
+	vk::VertexInputBindingDescription vertex_binding;
+	vk::VertexInputBindingDescription normal_binding;
+	vk::Buffer vertex_buffer;
+	vk::Buffer normal_buffer;
+	vk::Buffer index_buffer;
+	vk::DeviceMemory vertex_memory;
+	vk::DeviceMemory normal_memory;
+	vk::DeviceMemory index_memory;
+};
 
 vulkan_renderer::vulkan_renderer(bool debug)
 	: _debug(debug) {}
@@ -61,29 +91,106 @@ vk::PipelineShaderStageCreateInfo vulkan_renderer::create_shader(const string& s
 	return stage_create_info;
 }
 
-struct scene_vulkan_data
+static uint32_t find_memory_type(uint32_t type_filter, vk::MemoryPropertyFlags properties, vk::PhysicalDeviceMemoryProperties memory_properties)
 {
-	vk::Pipeline pipeline;
-};
+	for(uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
+	{
+		if((type_filter & (1 << i)) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
+		{
+			return i;
+		}
+	}
 
-struct object_vulkan_data
+	throw runtime_error("Failed to find memory type");
+}
+
+void vulkan_renderer::create_memory(size_t size, vk::Buffer& buffer, vk::DeviceMemory& device_memory, void* data, vk::BufferUsageFlagBits usage) const
 {
-	vk::PipelineLayout pipeline_layout;
-	vk::RenderPass render_pass;
-	vk::Pipeline pipeline;
-};
+	vk::BufferCreateInfo buffer_create_info;
+	buffer_create_info.size = size;
+	buffer_create_info.usage = usage;
+	buffer_create_info.sharingMode = vk::SharingMode::eExclusive;
+
+	if (_env->device.createBuffer(&buffer_create_info, nullptr, &buffer) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create buffer");
+
+	vk::MemoryRequirements requirements;
+	_env->device.getBufferMemoryRequirements(buffer, &requirements);
+
+	vk::PhysicalDeviceMemoryProperties memory_properties;
+	_env->physical_device.getMemoryProperties(&memory_properties);
+
+	vk::MemoryAllocateInfo allocate_info;
+	allocate_info.allocationSize = requirements.size;
+	allocate_info.memoryTypeIndex = find_memory_type(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, memory_properties);
+
+	if (_env->device.allocateMemory(&allocate_info, nullptr, &device_memory) != vk::Result::eSuccess)
+		throw runtime_error("Failed to allocate memory");
+
+	_env->device.bindBufferMemory(buffer, device_memory, 0);
+
+	void* ptr = _env->device.mapMemory(device_memory, 0, size);
+	memcpy(ptr, data, size);
+	_env->device.unmapMemory(device_memory);
+}
 
 void vulkan_renderer::init_scene(scene& scene)
 {
+	object_vulkan_data object_data;
+
 	for (auto& obj : scene.objects)
 	{
 		auto vertex_stage = create_shader(obj.vertex_shader.filename, vk::ShaderStageFlagBits::eVertex);
-		auto fragment_stage = create_shader(obj.fragment_shader.filename, vk::ShaderStageFlagBits::eVertex);
+		auto fragment_stage = create_shader(obj.fragment_shader.filename, vk::ShaderStageFlagBits::eFragment);
 
 		obj.vertex_shader.user_data = vertex_stage;
 		obj.fragment_shader.user_data = fragment_stage;
 
+		model_vulkan_data model_data;
+
+		if (obj.model->user_data.empty())
+		{
+
+			model_data.vertex_binding.binding = 0;
+			model_data.vertex_binding.inputRate = vk::VertexInputRate::eVertex;
+			model_data.vertex_binding.stride = sizeof(obj.model->vertices[0]);
+
+			model_data.normal_binding.binding = 1;
+			model_data.normal_binding.inputRate = vk::VertexInputRate::eVertex;
+			model_data.normal_binding.stride = sizeof(obj.model->normals[0]);
+
+			model_data.vertex.binding = 0;
+			model_data.vertex.location = 0;
+			model_data.vertex.format = vk::Format::eR32G32B32Sfloat;
+			model_data.vertex.offset = 0;
+
+			model_data.normal.binding = 1;
+			model_data.normal.location = 1;
+			model_data.normal.format = vk::Format::eR32G32B32Sfloat;
+			model_data.normal.offset = 0;
+
+			create_memory(sizeof(obj.model->vertices[0]) * size(obj.model->vertices), model_data.vertex_buffer, model_data.vertex_memory, data(obj.model->vertices), vk::BufferUsageFlagBits::eVertexBuffer);
+			create_memory(sizeof(obj.model->normals[0]) * size(obj.model->normals), model_data.normal_buffer, model_data.normal_memory, data(obj.model->normals), vk::BufferUsageFlagBits::eVertexBuffer);
+			create_memory(sizeof(obj.model->indices[0]) * size(obj.model->indices), model_data.index_buffer, model_data.index_memory, data(obj.model->indices), vk::BufferUsageFlagBits::eIndexBuffer);
+
+			obj.model->user_data = model_data;
+		}
+
+		uniform_buffer_object ubo;
+		ubo.model = obj.trans;
+		ubo.proj = scene.projection;
+		ubo.view = scene.view;
+
+		create_memory(sizeof(uniform_buffer_object), object_data.ubo_buffer, object_data.ubo_memory, &ubo, vk::BufferUsageFlagBits::eUniformBuffer);
+
+		vk::VertexInputAttributeDescription attr[] = { model_data.vertex, model_data.normal };
+		vk::VertexInputBindingDescription bindings[] = { model_data.vertex_binding, model_data.normal_binding };
+
 		vk::PipelineVertexInputStateCreateInfo vertex_input_info;
+		vertex_input_info.vertexBindingDescriptionCount = 2;
+		vertex_input_info.pVertexBindingDescriptions = bindings;
+		vertex_input_info.vertexAttributeDescriptionCount = 2;
+		vertex_input_info.pVertexAttributeDescriptions = attr;
 
 		vk::PipelineInputAssemblyStateCreateInfo input_assembly_state_create_info;
 		input_assembly_state_create_info.topology = vk::PrimitiveTopology::eTriangleList;
@@ -112,7 +219,7 @@ void vulkan_renderer::init_scene(scene& scene)
 		rasterization_state_create_info.rasterizerDiscardEnable = false;
 		rasterization_state_create_info.polygonMode = vk::PolygonMode::eFill;
 		rasterization_state_create_info.lineWidth = 1.f;
-		rasterization_state_create_info.cullMode = vk::CullModeFlagBits::eBack;
+		rasterization_state_create_info.cullMode = vk::CullModeFlagBits::eNone;
 		rasterization_state_create_info.frontFace = vk::FrontFace::eClockwise;
 		rasterization_state_create_info.depthBiasEnable = false;
 
@@ -129,44 +236,49 @@ void vulkan_renderer::init_scene(scene& scene)
 		color_blend_state_create_info.attachmentCount = 1;
 		color_blend_state_create_info.pAttachments = &color_blend_attachment_state;
 
-		vk::DynamicState dynamic_state;
+		vk::DescriptorSetLayoutBinding descriptor_set_layout_binding;
+		descriptor_set_layout_binding.binding = 0;
+		descriptor_set_layout_binding.descriptorType = vk::DescriptorType::eUniformBuffer;
+		descriptor_set_layout_binding.descriptorCount = 1;
+		descriptor_set_layout_binding.stageFlags = vk::ShaderStageFlagBits::eAllGraphics;
 
-		object_vulkan_data object_data;
+		vk::DescriptorSetLayoutCreateInfo descriptor_set_layout_create_info;
+		descriptor_set_layout_create_info.bindingCount = 1;
+		descriptor_set_layout_create_info.pBindings = &descriptor_set_layout_binding;
+
+		if (_env->device.createDescriptorSetLayout(&descriptor_set_layout_create_info, nullptr, &object_data.descriptor_set_layout) != vk::Result::eSuccess)
+			throw runtime_error("Failed to create descriptor set layout");
+
+		vk::DescriptorSetAllocateInfo descriptor_set_allocate_info;
+		descriptor_set_allocate_info.descriptorPool = _env->descriptor_pool;
+		descriptor_set_allocate_info.descriptorSetCount = 1;
+		descriptor_set_allocate_info.pSetLayouts = &object_data.descriptor_set_layout;
+
+		if (_env->device.allocateDescriptorSets(&descriptor_set_allocate_info, &object_data.descriptor_set) != vk::Result::eSuccess)
+			throw runtime_error("Failed to allocate descriptor set");
+
+		vk::DescriptorBufferInfo buffer_info;
+		buffer_info.buffer = object_data.ubo_buffer;
+		buffer_info.offset = 0;
+		buffer_info.range = sizeof(uniform_buffer_object);
+
+		vk::WriteDescriptorSet write_descriptor_set;
+		write_descriptor_set.dstSet = object_data.descriptor_set;
+		write_descriptor_set.dstBinding = 0;
+		write_descriptor_set.dstArrayElement = 0;
+		write_descriptor_set.descriptorType = vk::DescriptorType::eUniformBuffer;
+		write_descriptor_set.descriptorCount = 1;
+		write_descriptor_set.pBufferInfo = &buffer_info;
+		_env->device.updateDescriptorSets(1, &write_descriptor_set, 0, nullptr);
 
 		vk::PipelineLayoutCreateInfo pipeline_layout_create_info;
+		pipeline_layout_create_info.setLayoutCount = 1;
+		pipeline_layout_create_info.pSetLayouts = &object_data.descriptor_set_layout;
 
 		if (_env->device.createPipelineLayout(&pipeline_layout_create_info, nullptr, &object_data.pipeline_layout) != vk::Result::eSuccess)
 			throw runtime_error("Failed to create pipeline layout");
 
-		vk::AttachmentDescription attachment_description;
-		attachment_description.format = _env->swapchain_image_format;
-		attachment_description.samples = vk::SampleCountFlagBits::e1;
-		attachment_description.loadOp = vk::AttachmentLoadOp::eClear;
-		attachment_description.storeOp = vk::AttachmentStoreOp::eStore;
-		attachment_description.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
-		attachment_description.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
-		attachment_description.initialLayout = vk::ImageLayout::eUndefined;
-		attachment_description.finalLayout = vk::ImageLayout::ePresentSrcKHR;
-
-		vk::AttachmentReference attachment_reference;
-		attachment_reference.attachment = 0;
-		attachment_reference.layout = vk::ImageLayout::eColorAttachmentOptimal;
-
-		vk::SubpassDescription subpass_description;
-		subpass_description.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
-		subpass_description.colorAttachmentCount = 1;
-		subpass_description.pColorAttachments = &attachment_reference;
-
-		vk::RenderPassCreateInfo render_pass_create_info;
-		render_pass_create_info.attachmentCount = 1;
-		render_pass_create_info.pAttachments = &attachment_description;
-		render_pass_create_info.subpassCount = 1;
-		render_pass_create_info.pSubpasses = &subpass_description;
-
-		if (_env->device.createRenderPass(&render_pass_create_info, nullptr, &object_data.render_pass) != vk::Result::eSuccess)
-			throw runtime_error("Failed to create render pass");
-
-		vk::PipelineShaderStageCreateInfo stages[] = {vertex_stage, fragment_stage};
+		vk::PipelineShaderStageCreateInfo stages[] = { vertex_stage, fragment_stage };
 
 		vk::GraphicsPipelineCreateInfo pipeline_create_info;
 		pipeline_create_info.stageCount = 2;
@@ -180,22 +292,131 @@ void vulkan_renderer::init_scene(scene& scene)
 		pipeline_create_info.pColorBlendState = &color_blend_state_create_info;
 		pipeline_create_info.pDynamicState = nullptr;
 		pipeline_create_info.layout = object_data.pipeline_layout;
-		pipeline_create_info.renderPass = object_data.render_pass;
+		pipeline_create_info.renderPass = _env->render_pass;
 		pipeline_create_info.subpass = 0;
 
 		if (_env->device.createGraphicsPipelines(vk::PipelineCache(), 1, &pipeline_create_info, nullptr, &object_data.pipeline) != vk::Result::eSuccess)
 			throw runtime_error("Failed to create pipeline");
 
-		obj.user_data = move(object_data);
+		object_data.command_buffers.resize(size(_env->framebuffers));
+
+		vk::CommandBufferAllocateInfo allocate_info;
+		allocate_info.commandPool = _env->render_command_pool;
+		allocate_info.level = vk::CommandBufferLevel::ePrimary;
+		allocate_info.commandBufferCount = size(object_data.command_buffers);
+
+		if (_env->device.allocateCommandBuffers(&allocate_info, data(object_data.command_buffers)) != vk::Result::eSuccess)
+			throw runtime_error("Failed to allocate command buffer");
+
+		for (size_t i = 0; i < size(object_data.command_buffers); i++)
+		{
+			vk::CommandBufferBeginInfo begin_info;
+			begin_info.flags = vk::CommandBufferUsageFlagBits::eSimultaneousUse;
+
+			object_data.command_buffers[i].begin(&begin_info);
+
+			vk::RenderPassBeginInfo render_pass_begin_info;
+			render_pass_begin_info.renderPass = _env->render_pass;
+			render_pass_begin_info.framebuffer = _env->framebuffers[i];
+			render_pass_begin_info.renderArea.offset = vk::Offset2D{ 0, 0 };
+			render_pass_begin_info.renderArea.extent = _env->swapchain_extent;
+			vk::ClearValue black;
+			black.color.float32[0] = 0.f;
+			black.color.float32[1] = 0.f;
+			black.color.float32[2] = 0.f;
+			black.color.float32[3] = 1.f;
+			render_pass_begin_info.clearValueCount = 1;
+			render_pass_begin_info.pClearValues = &black;
+
+			object_data.command_buffers[i].beginRenderPass(&render_pass_begin_info, vk::SubpassContents::eInline);
+
+			object_data.command_buffers[i].bindPipeline(vk::PipelineBindPoint::eGraphics, object_data.pipeline);
+
+			vk::Buffer buffers[] = { model_data.vertex_buffer, model_data.normal_buffer };
+			vk::DeviceSize offsets[] = { 0, 0 };
+
+			object_data.command_buffers[i].bindVertexBuffers(0, 2, buffers, offsets);
+
+			object_data.command_buffers[i].bindIndexBuffer(model_data.index_buffer, 0, vk::IndexType::eUint32);
+
+			object_data.command_buffers[i].bindDescriptorSets(vk::PipelineBindPoint::eGraphics, object_data.pipeline_layout, 0, 1, &object_data.descriptor_set, 0, nullptr);
+
+			object_data.command_buffers[i].drawIndexed(size(obj.model->indices), 1, 0, 0, 0);
+
+			object_data.command_buffers[i].endRenderPass();
+
+			object_data.command_buffers[i].end();
+		}
+
+		obj.user_data = object_data;
 	}
 }
 
 
 void vulkan_renderer::render(const scene& scene)
 {
+
+	uint32_t image_index;
+	if (_env->device.acquireNextImageKHR(_env->swapchain, 1000000000ull, _env->image_available_semaphore, vk::Fence(), &image_index) != vk::Result::eSuccess)
+		throw runtime_error("Failed to acquire image");
+
+	vk::SubmitInfo submit_info;
+
+	vk::PipelineStageFlags wait_stages[] = { vk::PipelineStageFlagBits::eColorAttachmentOutput };
+
+	submit_info.waitSemaphoreCount = 1;
+	submit_info.pWaitSemaphores = &_env->image_available_semaphore;
+	submit_info.pWaitDstStageMask = wait_stages;
+	submit_info.signalSemaphoreCount = 1;
+	submit_info.pSignalSemaphores = &_env->render_finished_semaphore;
+
+	submit_info.commandBufferCount = 1;
+	vector<vk::CommandBuffer> buffer = any_cast<object_vulkan_data>(scene.objects[0].user_data).command_buffers;
+	submit_info.pCommandBuffers = &buffer[image_index];
+
+	if (_env->display_queue.submit(1, &submit_info, vk::Fence()) != vk::Result::eSuccess)
+		throw runtime_error("Failed to display");
+
+	vk::PresentInfoKHR present_info;
+	present_info.waitSemaphoreCount = 1;
+	present_info.pWaitSemaphores = &_env->render_finished_semaphore;
+	present_info.swapchainCount = 1;
+	present_info.pSwapchains = &_env->swapchain;
+	present_info.pImageIndices = &image_index;
+
+	if (_env->display_queue.presentKHR(&present_info) != vk::Result::eSuccess)
+		throw runtime_error("Failed to present");
 }
 
 void vulkan_renderer::cleanup(scene& scene)
 {
-	
+	_env->device.waitIdle();
+	for(auto& obj : scene.objects)
+	{
+		if(!obj.model->user_data.empty())
+		{
+			auto model_data = any_cast<model_vulkan_data>(obj.model->user_data);
+
+			_env->device.freeMemory(model_data.vertex_memory);
+			_env->device.freeMemory(model_data.normal_memory);
+			_env->device.freeMemory(model_data.index_memory);
+			_env->device.destroyBuffer(model_data.vertex_buffer);
+			_env->device.destroyBuffer(model_data.normal_buffer);
+			_env->device.destroyBuffer(model_data.index_buffer);
+		}
+
+		auto object_data = any_cast<object_vulkan_data>(obj.user_data);
+
+		_env->device.destroyDescriptorSetLayout(object_data.descriptor_set_layout);
+		_env->device.freeMemory(object_data.ubo_memory);
+		_env->device.destroyBuffer(object_data.ubo_buffer);
+		_env->device.freeCommandBuffers(_env->render_command_pool, size(object_data.command_buffers), data(object_data.command_buffers));
+		_env->device.destroyPipelineLayout(object_data.pipeline_layout);
+		_env->device.destroyPipeline(object_data.pipeline);
+
+		auto vsm = any_cast<vk::PipelineShaderStageCreateInfo>(obj.vertex_shader.user_data);
+		_env->device.destroyShaderModule(vsm.module);
+		auto fsm = any_cast<vk::PipelineShaderStageCreateInfo>(obj.fragment_shader.user_data);
+		_env->device.destroyShaderModule(fsm.module);
+	}
 }

@@ -66,12 +66,28 @@ env::env(GLFWwindow* window, bool debug)
 	choose_device(debug);
 	create_swapchain(window);
 	create_swapchain_image_views();
+	create_render_pass();
+	create_command_pool();
+	create_descriptor_pool();
+	create_semaphores();
 }
 
 env::~env()
 {
 	if(destroy_debug_callback)
 		destroy_debug_callback((VkInstance)instance, debug_callbacks, nullptr);
+	if (image_available_semaphore)
+		device.destroySemaphore(image_available_semaphore);
+	if (render_finished_semaphore)
+		device.destroySemaphore(render_finished_semaphore);
+	if (render_pass)
+		device.destroyRenderPass(render_pass);
+	if (descriptor_pool)
+		device.destroyDescriptorPool(descriptor_pool);
+	if (render_command_pool)
+		device.destroyCommandPool(render_command_pool);
+	for (auto fb : framebuffers)
+		device.destroyFramebuffer(fb);
 	for (auto view : swapchain_image_views)
 		device.destroyImageView(view);
 	if (swapchain)
@@ -119,8 +135,8 @@ void env::choose_device(bool debug)
 {
 	physical_device = instance.enumeratePhysicalDevices()[0];
 
-	auto render_queue_index = -1;
-	auto display_queue_index = -1;
+	render_queue_index = -1;
+	display_queue_index = -1;
 
 	auto queues = physical_device.getQueueFamilyProperties();
 	for(auto i = 0u; i < size(queues); i++)
@@ -277,4 +293,141 @@ void env::create_swapchain_image_views()
 		if (device.createImageView(&create_info, nullptr, &swapchain_image_views[i]) != vk::Result::eSuccess)
 			throw runtime_error("Could not create image view");
 	}
+}
+
+static vk::Format find_depth_format(vk::PhysicalDevice physical_device, const vector<vk::Format> formats, vk::ImageTiling tiling, vk::FormatFeatureFlagBits flags)
+{
+	for(auto f : formats)
+	{
+		auto props = physical_device.getFormatProperties(f);
+		if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & flags) == flags)
+			return f;
+		else if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & flags) == flags)
+			return f;
+	}
+	throw runtime_error("Could not find depth format");
+}
+
+void env::create_depth_image()
+{
+	auto format = find_depth_format(physical_device,
+		{ vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
+			vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+
+	vk::ImageCreateInfo image_create_info;
+	image_create_info.imageType = vk::ImageType::e2D;
+	image_create_info.extent = vk::Extent3D{ swapchain_extent.width, swapchain_extent.height, 1 };
+	image_create_info.mipLevels = 1;
+	image_create_info.arrayLayers = 1;
+	image_create_info.format = format;
+	image_create_info.tiling = vk::ImageTiling::eOptimal;
+	image_create_info.initialLayout = vk::ImageLayout::ePreinitialized;
+	image_create_info.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
+	image_create_info.samples = vk::SampleCountFlagBits::e1;
+	image_create_info.sharingMode = vk::SharingMode::eExclusive;
+
+	if (device.createImage(&image_create_info, nullptr, &depth_image) != vk::Result::eSuccess)
+		throw runtime_error("Could not create image");
+
+	vk::ImageViewCreateInfo image_view_create_info;
+	image_view_create_info.format = format;
+}
+
+
+void env::create_render_pass()
+{
+
+	vk::AttachmentDescription attachment_description;
+	attachment_description.format = swapchain_image_format;
+	attachment_description.samples = vk::SampleCountFlagBits::e1;
+	attachment_description.loadOp = vk::AttachmentLoadOp::eClear;
+	attachment_description.storeOp = vk::AttachmentStoreOp::eStore;
+	attachment_description.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+	attachment_description.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	attachment_description.initialLayout = vk::ImageLayout::eUndefined;
+	attachment_description.finalLayout = vk::ImageLayout::ePresentSrcKHR;
+
+	vk::AttachmentReference attachment_reference;
+	attachment_reference.attachment = 0;
+	attachment_reference.layout = vk::ImageLayout::eColorAttachmentOptimal;
+
+	vk::SubpassDescription subpass_description;
+	subpass_description.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
+	subpass_description.colorAttachmentCount = 1;
+	subpass_description.pColorAttachments = &attachment_reference;
+
+	vk::SubpassDependency dependency;
+	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+	dependency.dstSubpass = 0;
+	dependency.srcStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
+	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
+
+	vk::RenderPassCreateInfo render_pass_create_info;
+	render_pass_create_info.attachmentCount = 1;
+	render_pass_create_info.pAttachments = &attachment_description;
+	render_pass_create_info.subpassCount = 1;
+	render_pass_create_info.pSubpasses = &subpass_description;
+	render_pass_create_info.dependencyCount = 1;
+	render_pass_create_info.pDependencies = &dependency;
+
+	if (device.createRenderPass(&render_pass_create_info, nullptr, &render_pass) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create render pass");
+
+	framebuffers.resize(size(swapchain_image_views));
+
+	for(size_t i = 0; i < size(swapchain_image_views); i++)
+	{
+		vk::FramebufferCreateInfo create_info;
+		create_info.attachmentCount = 1;
+		create_info.pAttachments = &swapchain_image_views[i];
+		create_info.width = swapchain_extent.width;
+		create_info.height = swapchain_extent.height;
+		create_info.layers = 1;
+		create_info.renderPass = render_pass;
+
+		if (device.createFramebuffer(&create_info, nullptr, &framebuffers[i]) != vk::Result::eSuccess)
+			throw runtime_error("Failed to create framebuffer");
+	}
+}
+
+void env::create_command_pool()
+{
+	vk::CommandPoolCreateInfo render_create_info;
+
+	render_create_info.queueFamilyIndex = render_queue_index;
+
+	if (device.createCommandPool(&render_create_info, nullptr, &render_command_pool) != vk::Result::eSuccess)
+		throw runtime_error("Can't create command pool");
+}
+
+void env::create_descriptor_pool()
+{
+
+	vk::DescriptorPoolSize pool_size;
+
+	pool_size.type = vk::DescriptorType::eUniformBuffer;
+	pool_size.descriptorCount = 1;
+
+	vk::DescriptorPoolCreateInfo create_info;
+
+	create_info.poolSizeCount = 1;
+	create_info.pPoolSizes = &pool_size;
+	create_info.maxSets = 1;
+
+	if (device.createDescriptorPool(&create_info, nullptr, &descriptor_pool) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create descriptor pool");
+
+}
+
+
+void env::create_semaphores()
+{
+	vk::SemaphoreCreateInfo create_info;
+
+	if (device.createSemaphore(&create_info, nullptr, &image_available_semaphore) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create semaphore");
+
+	if (device.createSemaphore(&create_info, nullptr, &render_finished_semaphore) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create semaphore");
 }
