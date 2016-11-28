@@ -24,17 +24,21 @@ namespace vulkan
 		std::vector<vk::Image> swapchain_images;
 		std::vector<vk::ImageView> swapchain_image_views;
 		std::vector<vk::Framebuffer> framebuffers;
+		vk::DeviceMemory depth_memory;
+		vk::Image depth_image;
+		vk::Format depth_format;
+		vk::ImageView depth_image_view;
 		vk::CommandPool render_command_pool;
 		vk::RenderPass render_pass;
 		vk::Semaphore image_available_semaphore;
 		vk::Semaphore render_finished_semaphore;
 		vk::DescriptorPool descriptor_pool;
-		vk::DeviceMemory depth_memory;
-		vk::Image depth_image;
-		vk::ImageView depth_image_view;
 
 		env(GLFWwindow* window, bool debug);
 		~env();
+
+		void create_memory(size_t size, vk::Buffer& buffer, vk::DeviceMemory& device_memory, void* data, vk::BufferUsageFlagBits usage) const;
+		void create_image(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling image_tiling, vk::ImageUsageFlagBits usage, vk::MemoryPropertyFlagBits properties, vk::Image& image, vk::DeviceMemory& memory) const;
 
 	private:
 		void init_instance_debug_callbacks();

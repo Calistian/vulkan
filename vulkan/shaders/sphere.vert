@@ -14,5 +14,5 @@ out vec3 color;
 
 void main() {
     gl_Position = ubo.proj * ubo.view * ubo.model * vec4(vp, 1.0);
-    color =  vn;
+    color = vp;
 }

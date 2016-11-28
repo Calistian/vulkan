@@ -91,49 +91,6 @@ vk::PipelineShaderStageCreateInfo vulkan_renderer::create_shader(const string& s
 	return stage_create_info;
 }
 
-static uint32_t find_memory_type(uint32_t type_filter, vk::MemoryPropertyFlags properties, vk::PhysicalDeviceMemoryProperties memory_properties)
-{
-	for(uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
-	{
-		if((type_filter & (1 << i)) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
-		{
-			return i;
-		}
-	}
-
-	throw runtime_error("Failed to find memory type");
-}
-
-void vulkan_renderer::create_memory(size_t size, vk::Buffer& buffer, vk::DeviceMemory& device_memory, void* data, vk::BufferUsageFlagBits usage) const
-{
-	vk::BufferCreateInfo buffer_create_info;
-	buffer_create_info.size = size;
-	buffer_create_info.usage = usage;
-	buffer_create_info.sharingMode = vk::SharingMode::eExclusive;
-
-	if (_env->device.createBuffer(&buffer_create_info, nullptr, &buffer) != vk::Result::eSuccess)
-		throw runtime_error("Failed to create buffer");
-
-	vk::MemoryRequirements requirements;
-	_env->device.getBufferMemoryRequirements(buffer, &requirements);
-
-	vk::PhysicalDeviceMemoryProperties memory_properties;
-	_env->physical_device.getMemoryProperties(&memory_properties);
-
-	vk::MemoryAllocateInfo allocate_info;
-	allocate_info.allocationSize = requirements.size;
-	allocate_info.memoryTypeIndex = find_memory_type(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, memory_properties);
-
-	if (_env->device.allocateMemory(&allocate_info, nullptr, &device_memory) != vk::Result::eSuccess)
-		throw runtime_error("Failed to allocate memory");
-
-	_env->device.bindBufferMemory(buffer, device_memory, 0);
-
-	void* ptr = _env->device.mapMemory(device_memory, 0, size);
-	memcpy(ptr, data, size);
-	_env->device.unmapMemory(device_memory);
-}
-
 void vulkan_renderer::init_scene(scene& scene)
 {
 	object_vulkan_data object_data;
@@ -169,9 +126,9 @@ void vulkan_renderer::init_scene(scene& scene)
 			model_data.normal.format = vk::Format::eR32G32B32Sfloat;
 			model_data.normal.offset = 0;
 
-			create_memory(sizeof(obj.model->vertices[0]) * size(obj.model->vertices), model_data.vertex_buffer, model_data.vertex_memory, data(obj.model->vertices), vk::BufferUsageFlagBits::eVertexBuffer);
-			create_memory(sizeof(obj.model->normals[0]) * size(obj.model->normals), model_data.normal_buffer, model_data.normal_memory, data(obj.model->normals), vk::BufferUsageFlagBits::eVertexBuffer);
-			create_memory(sizeof(obj.model->indices[0]) * size(obj.model->indices), model_data.index_buffer, model_data.index_memory, data(obj.model->indices), vk::BufferUsageFlagBits::eIndexBuffer);
+			_env->create_memory(sizeof(obj.model->vertices[0]) * size(obj.model->vertices), model_data.vertex_buffer, model_data.vertex_memory, data(obj.model->vertices), vk::BufferUsageFlagBits::eVertexBuffer);
+			_env->create_memory(sizeof(obj.model->normals[0]) * size(obj.model->normals), model_data.normal_buffer, model_data.normal_memory, data(obj.model->normals), vk::BufferUsageFlagBits::eVertexBuffer);
+			_env->create_memory(sizeof(obj.model->indices[0]) * size(obj.model->indices), model_data.index_buffer, model_data.index_memory, data(obj.model->indices), vk::BufferUsageFlagBits::eIndexBuffer);
 
 			obj.model->user_data = model_data;
 		}
@@ -180,8 +137,8 @@ void vulkan_renderer::init_scene(scene& scene)
 		ubo.model = obj.trans;
 		ubo.proj = scene.projection;
 		ubo.view = scene.view;
-
-		create_memory(sizeof(uniform_buffer_object), object_data.ubo_buffer, object_data.ubo_memory, &ubo, vk::BufferUsageFlagBits::eUniformBuffer);
+		
+		_env->create_memory(sizeof(uniform_buffer_object), object_data.ubo_buffer, object_data.ubo_memory, &ubo, vk::BufferUsageFlagBits::eUniformBuffer);
 
 		vk::VertexInputAttributeDescription attr[] = { model_data.vertex, model_data.normal };
 		vk::VertexInputBindingDescription bindings[] = { model_data.vertex_binding, model_data.normal_binding };
@@ -278,6 +235,13 @@ void vulkan_renderer::init_scene(scene& scene)
 		if (_env->device.createPipelineLayout(&pipeline_layout_create_info, nullptr, &object_data.pipeline_layout) != vk::Result::eSuccess)
 			throw runtime_error("Failed to create pipeline layout");
 
+		vk::PipelineDepthStencilStateCreateInfo depth_stencil_state_create_info;
+		depth_stencil_state_create_info.depthTestEnable = true;
+		depth_stencil_state_create_info.depthWriteEnable = true;
+		depth_stencil_state_create_info.depthCompareOp = vk::CompareOp::eLess;
+		depth_stencil_state_create_info.depthBoundsTestEnable = false;
+		depth_stencil_state_create_info.stencilTestEnable = false;
+
 		vk::PipelineShaderStageCreateInfo stages[] = { vertex_stage, fragment_stage };
 
 		vk::GraphicsPipelineCreateInfo pipeline_create_info;
@@ -288,7 +252,7 @@ void vulkan_renderer::init_scene(scene& scene)
 		pipeline_create_info.pViewportState = &viewport_state_create_info;
 		pipeline_create_info.pRasterizationState = &rasterization_state_create_info;
 		pipeline_create_info.pMultisampleState = &multisample_state_create_info;
-		pipeline_create_info.pDepthStencilState = nullptr;
+		pipeline_create_info.pDepthStencilState = &depth_stencil_state_create_info;
 		pipeline_create_info.pColorBlendState = &color_blend_state_create_info;
 		pipeline_create_info.pDynamicState = nullptr;
 		pipeline_create_info.layout = object_data.pipeline_layout;
@@ -321,12 +285,16 @@ void vulkan_renderer::init_scene(scene& scene)
 			render_pass_begin_info.renderArea.offset = vk::Offset2D{ 0, 0 };
 			render_pass_begin_info.renderArea.extent = _env->swapchain_extent;
 			vk::ClearValue black;
+			vk::ClearValue depth;
+			depth.depthStencil.depth = 1.f;
 			black.color.float32[0] = 0.f;
 			black.color.float32[1] = 0.f;
 			black.color.float32[2] = 0.f;
 			black.color.float32[3] = 1.f;
-			render_pass_begin_info.clearValueCount = 1;
-			render_pass_begin_info.pClearValues = &black;
+			vk::ClearValue clear_values[] = { black, depth };
+
+			render_pass_begin_info.clearValueCount = 2;
+			render_pass_begin_info.pClearValues = clear_values;
 
 			object_data.command_buffers[i].beginRenderPass(&render_pass_begin_info, vk::SubpassContents::eInline);
 

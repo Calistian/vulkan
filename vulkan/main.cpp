@@ -6,8 +6,8 @@
 
 using namespace std;
 
-#define WIDTH 1580
-#define HEIGHT 1580
+#define WIDTH 1500
+#define HEIGHT 1500
 #define ASPECT (float(WIDTH) / float(HEIGHT))
 
 static void key_pressed(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -21,7 +21,7 @@ static unique_ptr<scene> create_scene(renderer* rend)
 	auto sc = make_unique<scene>();
 
 	sc->projection = glm::perspective<float>(glm::radians<float>(45), ASPECT, 0.1f, 1000.f);
-	sc->view = glm::lookAt(glm::vec3(2, 2, 2), glm::vec3(), glm::vec3(0, 1, 0));
+	sc->view = glm::lookAt(glm::vec3(3, 3, 3), glm::vec3(), glm::vec3(0, 1, 0));
 	sc->projection[1][1] *= -1;
 
 	light point;
@@ -42,32 +42,23 @@ static unique_ptr<scene> create_scene(renderer* rend)
 	 */
 
 	object sphere;
-	sphere.model = make_shared<model>();//make_shared<model>(load_model_from_file("models/sphere.obj"));
-	sphere.model->vertices = {
-		{ -0.5f, 0.f, -0.5f },
-		{ 0.5f, 0.f, -0.5f },
-		{ 0.5f, 0.f, 0.5f },
-		{ -0.5f, 0.f, 0.5f },
-		{ -0.5f, -0.5f, -0.5f },
-		{ 0.5f, -0.5f, -0.5f },
-		{ 0.5f, -0.5f, 0.5f },
-		{ -0.5f, -0.5f, 0.5f },
-	};
-	sphere.model->normals = {
-		{ 1, 0, 0 },
-		{ 1, 0, 0 },
-		{ 1, 0, 0 },
-		{ 1, 0, 0 },
-		{ 0, 1, 0 },
-		{ 0, 1, 0 },
-		{ 0, 1, 0 },
-		{ 0, 1, 0 },
-	};
-	sphere.model->indices = {
-		0, 1, 2, 2, 3, 0,
-		4, 5, 6, 6, 7, 4
-	};
-	//sphere.model = make_shared<model>(load_model_from_file("models/sphere.obj"));
+	//sphere.model = make_shared<model>();//make_shared<model>(load_model_from_file("models/sphere.obj"));
+	//sphere.model->vertices = {
+	//	{ -0.5f, 0.f, -0.5f },
+	//	{ 0.5f, 0.f, -0.5f },
+	//	{ 0.5f, 0.f, 0.5f },
+	//	{ -0.5f, 0.f, 0.5f }
+	//};
+	//sphere.model->normals = {
+	//	{ 1, 0, 0 },
+	//	{ 0, 1, 0 },
+	//	{ 0, 0, 1 },
+	//	{ 1, 1, 1 },
+	//};
+	//sphere.model->indices = {
+	//	0, 1, 2, 2, 3, 0
+	//};
+	sphere.model = make_shared<model>(load_model_from_file("models/sphere.obj"));
 	sphere.vertex_shader.filename = "shaders/sphere.vert";
 	sphere.fragment_shader.filename = "shaders/sphere.frag";
 	//sphere.rotate(glm::radians<float>(45), glm::vec3(0, 0, 1));

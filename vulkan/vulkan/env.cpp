@@ -66,6 +66,7 @@ env::env(GLFWwindow* window, bool debug)
 	choose_device(debug);
 	create_swapchain(window);
 	create_swapchain_image_views();
+	create_depth_image();
 	create_render_pass();
 	create_command_pool();
 	create_descriptor_pool();
@@ -86,6 +87,12 @@ env::~env()
 		device.destroyDescriptorPool(descriptor_pool);
 	if (render_command_pool)
 		device.destroyCommandPool(render_command_pool);
+	if (depth_image_view)
+		device.destroyImageView(depth_image_view);
+	if (depth_image)
+		device.destroyImage(depth_image);
+	if (depth_memory)
+		device.freeMemory(depth_memory);
 	for (auto fb : framebuffers)
 		device.destroyFramebuffer(fb);
 	for (auto view : swapchain_image_views)
@@ -295,44 +302,46 @@ void env::create_swapchain_image_views()
 	}
 }
 
-static vk::Format find_depth_format(vk::PhysicalDevice physical_device, const vector<vk::Format> formats, vk::ImageTiling tiling, vk::FormatFeatureFlagBits flags)
+static vk::Format find_depth_format(vk::PhysicalDevice physical_device, vector<vk::Format> formats, vk::ImageTiling tiling, vk::FormatFeatureFlagBits features)
 {
 	for(auto f : formats)
 	{
 		auto props = physical_device.getFormatProperties(f);
-		if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & flags) == flags)
+		if (tiling == vk::ImageTiling::eLinear && (props.linearTilingFeatures & features) == features)
 			return f;
-		else if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & flags) == flags)
+		else if (tiling == vk::ImageTiling::eOptimal && (props.optimalTilingFeatures & features) == features)
 			return f;
 	}
-	throw runtime_error("Could not find depth format");
+	throw runtime_error("Failed to find depth format");
 }
 
 void env::create_depth_image()
 {
-	auto format = find_depth_format(physical_device,
-		{ vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
-			vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
+	depth_format = find_depth_format(
+		physical_device,
+		{vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
+		vk::ImageTiling::eOptimal,
+		vk::FormatFeatureFlagBits::eDepthStencilAttachment
+	);
+	create_image(swapchain_extent.width, swapchain_extent.height, depth_format, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment, vk::MemoryPropertyFlagBits::eDeviceLocal, depth_image, depth_memory);
 
-	vk::ImageCreateInfo image_create_info;
-	image_create_info.imageType = vk::ImageType::e2D;
-	image_create_info.extent = vk::Extent3D{ swapchain_extent.width, swapchain_extent.height, 1 };
-	image_create_info.mipLevels = 1;
-	image_create_info.arrayLayers = 1;
-	image_create_info.format = format;
-	image_create_info.tiling = vk::ImageTiling::eOptimal;
-	image_create_info.initialLayout = vk::ImageLayout::ePreinitialized;
-	image_create_info.usage = vk::ImageUsageFlagBits::eDepthStencilAttachment;
-	image_create_info.samples = vk::SampleCountFlagBits::e1;
-	image_create_info.sharingMode = vk::SharingMode::eExclusive;
+	vk::ImageViewCreateInfo view_info;
+	view_info.image = depth_image;
+	view_info.viewType = vk::ImageViewType::e2D;
+	view_info.format = depth_format;
+	view_info.components.r = vk::ComponentSwizzle::eIdentity;
+	view_info.components.g = vk::ComponentSwizzle::eIdentity;
+	view_info.components.b = vk::ComponentSwizzle::eIdentity;
+	view_info.components.a = vk::ComponentSwizzle::eIdentity;
+	view_info.subresourceRange.aspectMask = vk::ImageAspectFlagBits::eDepth;
+	view_info.subresourceRange.baseMipLevel = 0;
+	view_info.subresourceRange.levelCount = 1;
+	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.layerCount = 1;
 
-	if (device.createImage(&image_create_info, nullptr, &depth_image) != vk::Result::eSuccess)
-		throw runtime_error("Could not create image");
-
-	vk::ImageViewCreateInfo image_view_create_info;
-	image_view_create_info.format = format;
+	if (device.createImageView(&view_info, nullptr, &depth_image_view) != vk::Result::eSuccess)
+		throw runtime_error("Could not create image view");
 }
-
 
 void env::create_render_pass()
 {
@@ -351,10 +360,25 @@ void env::create_render_pass()
 	attachment_reference.attachment = 0;
 	attachment_reference.layout = vk::ImageLayout::eColorAttachmentOptimal;
 
+	vk::AttachmentDescription depth_attachment_description;
+	depth_attachment_description.format = depth_format;
+	depth_attachment_description.samples = vk::SampleCountFlagBits::e1;
+	depth_attachment_description.loadOp = vk::AttachmentLoadOp::eClear;
+	depth_attachment_description.storeOp = vk::AttachmentStoreOp::eDontCare;
+	depth_attachment_description.stencilLoadOp = vk::AttachmentLoadOp::eDontCare;
+	depth_attachment_description.stencilStoreOp = vk::AttachmentStoreOp::eDontCare;
+	depth_attachment_description.initialLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+	depth_attachment_description.finalLayout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
+	vk::AttachmentReference depth_attachment_reference;
+	depth_attachment_reference.attachment = 1;
+	depth_attachment_reference.layout = vk::ImageLayout::eDepthStencilAttachmentOptimal;
+
 	vk::SubpassDescription subpass_description;
 	subpass_description.pipelineBindPoint = vk::PipelineBindPoint::eGraphics;
 	subpass_description.colorAttachmentCount = 1;
 	subpass_description.pColorAttachments = &attachment_reference;
+	subpass_description.pDepthStencilAttachment = &depth_attachment_reference;
 
 	vk::SubpassDependency dependency;
 	dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -363,9 +387,11 @@ void env::create_render_pass()
 	dependency.dstStageMask = vk::PipelineStageFlagBits::eColorAttachmentOutput;
 	dependency.dstAccessMask = vk::AccessFlagBits::eColorAttachmentRead | vk::AccessFlagBits::eColorAttachmentWrite;
 
+	vk::AttachmentDescription attachments[] = { attachment_description, depth_attachment_description };
+
 	vk::RenderPassCreateInfo render_pass_create_info;
-	render_pass_create_info.attachmentCount = 1;
-	render_pass_create_info.pAttachments = &attachment_description;
+	render_pass_create_info.attachmentCount = 2;
+	render_pass_create_info.pAttachments = attachments;
 	render_pass_create_info.subpassCount = 1;
 	render_pass_create_info.pSubpasses = &subpass_description;
 	render_pass_create_info.dependencyCount = 1;
@@ -378,9 +404,10 @@ void env::create_render_pass()
 
 	for(size_t i = 0; i < size(swapchain_image_views); i++)
 	{
+		vk::ImageView views[] = { swapchain_image_views[i], depth_image_view };
 		vk::FramebufferCreateInfo create_info;
-		create_info.attachmentCount = 1;
-		create_info.pAttachments = &swapchain_image_views[i];
+		create_info.attachmentCount = 2;
+		create_info.pAttachments = views;
 		create_info.width = swapchain_extent.width;
 		create_info.height = swapchain_extent.height;
 		create_info.layers = 1;
@@ -430,4 +457,82 @@ void env::create_semaphores()
 
 	if (device.createSemaphore(&create_info, nullptr, &render_finished_semaphore) != vk::Result::eSuccess)
 		throw runtime_error("Failed to create semaphore");
+}
+
+static uint32_t find_memory_type(uint32_t type_filter, vk::MemoryPropertyFlags properties, vk::PhysicalDeviceMemoryProperties memory_properties)
+{
+	for (uint32_t i = 0; i < memory_properties.memoryTypeCount; i++)
+	{
+		if ((type_filter & (1 << i)) && (memory_properties.memoryTypes[i].propertyFlags & properties) == properties)
+		{
+			return i;
+		}
+	}
+
+	throw runtime_error("Failed to find memory type");
+}
+
+
+void env::create_memory(size_t size, vk::Buffer& buffer, vk::DeviceMemory& device_memory, void* data, vk::BufferUsageFlagBits usage) const
+{
+	vk::BufferCreateInfo buffer_create_info;
+	buffer_create_info.size = size;
+	buffer_create_info.usage = usage;
+	buffer_create_info.sharingMode = vk::SharingMode::eExclusive;
+
+	if (device.createBuffer(&buffer_create_info, nullptr, &buffer) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create buffer");
+
+	vk::MemoryRequirements requirements;
+	device.getBufferMemoryRequirements(buffer, &requirements);
+
+	vk::PhysicalDeviceMemoryProperties memory_properties;
+	physical_device.getMemoryProperties(&memory_properties);
+
+	vk::MemoryAllocateInfo allocate_info;
+	allocate_info.allocationSize = requirements.size;
+	allocate_info.memoryTypeIndex = find_memory_type(requirements.memoryTypeBits, vk::MemoryPropertyFlagBits::eHostVisible | vk::MemoryPropertyFlagBits::eHostCoherent, memory_properties);
+
+	if (device.allocateMemory(&allocate_info, nullptr, &device_memory) != vk::Result::eSuccess)
+		throw runtime_error("Failed to allocate memory");
+
+	device.bindBufferMemory(buffer, device_memory, 0);
+
+	auto* ptr = device.mapMemory(device_memory, 0, size);
+	memcpy(ptr, data, size);
+	device.unmapMemory(device_memory);
+}
+
+void env::create_image(uint32_t width, uint32_t height, vk::Format format, vk::ImageTiling image_tiling, vk::ImageUsageFlagBits usage, vk::MemoryPropertyFlagBits properties, vk::Image& image, vk::DeviceMemory& memory) const
+{
+	vk::ImageCreateInfo create_info;
+	create_info.imageType = vk::ImageType::e2D;
+	create_info.extent.width = width;
+	create_info.extent.height = height;
+	create_info.extent.depth = 1;
+	create_info.mipLevels = 1;
+	create_info.arrayLayers = 1;
+	create_info.format = format;
+	create_info.tiling = image_tiling;
+	create_info.initialLayout = vk::ImageLayout::ePreinitialized;
+	create_info.usage = usage;
+	create_info.samples = vk::SampleCountFlagBits::e1;
+	create_info.sharingMode = vk::SharingMode::eExclusive;
+
+	if (device.createImage(&create_info, nullptr, &image) != vk::Result::eSuccess)
+		throw runtime_error("Failed to create image");
+
+	auto mem_requirements = device.getImageMemoryRequirements(image);
+
+	vk::MemoryAllocateInfo allocate_info;
+	allocate_info.allocationSize = mem_requirements.size;
+	allocate_info.memoryTypeIndex = find_memory_type(mem_requirements.memoryTypeBits, properties, physical_device.getMemoryProperties());
+
+	if (device.allocateMemory(&allocate_info, nullptr, &memory) != vk::Result::eSuccess)
+		throw runtime_error("Failed to allocate memory");
+
+	device.bindImageMemory(image, memory, 0);
+
+	vk::ImageViewCreateInfo view_create_info;
+	
 }

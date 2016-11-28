@@ -26,7 +26,8 @@ static void add_tex_coord(void* vmesh, float x, float y, float)
 static void add_indice(void* vmesh, tinyobj::index_t* index, int num_index)
 {
 	auto* m = static_cast<model*>(vmesh);
-	m->indices.push_back(index->vertex_index);
+	for(auto i = 0; i < num_index; i++)
+		m->indices.push_back(index[i].vertex_index);
 }
 
 model load_model_from_file(const string& filename)
