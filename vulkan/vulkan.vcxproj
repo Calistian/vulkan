@@ -73,8 +73,8 @@
     <LibraryPath>C:\VulkanSDK\1.0.30.0\Source\lib32;C:\Users\charp\Documents\GitHub\vulkan\libs\glfw\lib-vc2015;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LibraryPath>$(SolutionDir)/libs/boost/lib;$(SolutionDir)/libs/glfw/lib-vc2015/;C:\VulkanSDK\1.0.30.0\Source\lib32;$(LibraryPath)</LibraryPath>
-    <IncludePath>$(ProjectDir);$(SolutionDir)/libs/tinyobjloader;$(SolutionDir)/libs/boost/include;$(SolutionDir)/libs/glfw/include;$(SolutionDir)/libs/glm;C:\VulkanSDK\1.0.30.0\Include;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\charp\Documents\GitHub\vulkan\libs\glew\lib;$(SolutionDir)/libs/boost/lib;$(SolutionDir)/libs/glfw/lib-vc2015/;C:\VulkanSDK\1.0.30.0\Source\lib32;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Users\charp\Documents\GitHub\vulkan\libs\glew\include;$(ProjectDir);$(SolutionDir)/libs/tinyobjloader;$(SolutionDir)/libs/boost/include;$(SolutionDir)/libs/glfw/include;$(SolutionDir)/libs/glm;C:\VulkanSDK\1.0.30.0\Include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -84,7 +84,7 @@
       <PreprocessorDefinitions>VK_USE_PLATFORM_WIN32_KHR;GLFW_EXPOSE_NATIVE_WIN32;VULKAN_HPP_TYPESAFE_CONVERSION;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>opengl32.lib;glew32.lib;glfw3.lib;vulkan-1.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -127,6 +127,7 @@
     <ClCompile Include="main.cpp" />
     <ClCompile Include="model.cpp" />
     <ClCompile Include="object.cpp" />
+    <ClCompile Include="opengl\opengl_renderer.cpp" />
     <ClCompile Include="vulkan\env.cpp" />
     <ClCompile Include="vulkan\vulkan_renderer.cpp" />
   </ItemGroup>
@@ -134,6 +135,7 @@
     <ClInclude Include="any.h" />
     <ClInclude Include="model.h" />
     <ClInclude Include="object.h" />
+    <ClInclude Include="opengl\opengl_renderer.h" />
     <ClInclude Include="renderer.h" />
     <ClInclude Include="scene.h" />
     <ClInclude Include="vulkan\env.h" />

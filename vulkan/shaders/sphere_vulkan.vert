@@ -3,20 +3,32 @@
 
 struct Light
 {
-	vec3 pos;
-	vec3 ambiant;
-	vec3 diffuse;
-	vec3 specular;
-	vec3 attenuation;
-	vec3 dir;
-	float angle;
+    vec4 pos;
+    vec4 ambiant;
+    vec4 diffuse;
+    vec4 specular;
+    vec4 attenuation;
+    vec4 dir;
+    vec4 angle;
+};
+
+struct Material
+{
+    vec4 ambiant;
+    vec4 diffuse;
+    vec4 specular;
+    vec4 hardness;
 };
 
 layout(binding = 0, set = 0) uniform UniformBufferObject {
     mat4 model;
     mat4 view;
     mat4 proj;
-    Light lights[3];
+    Material material;
+    Light point;
+    Light sun;
+    Light spot;
+    vec4 eye;
 } ubo;
 
 layout(location = 0) in vec3 vp;

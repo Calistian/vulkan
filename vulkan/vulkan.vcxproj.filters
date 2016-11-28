@@ -16,6 +16,12 @@
     <Filter Include="Resource Files">
       <UniqueIdentifier>{776f2776-621c-4256-96cd-7cbecccaf3db}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\opengl">
+      <UniqueIdentifier>{418cf7d7-c859-4077-8f12-7e045a8800d8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\opengl">
+      <UniqueIdentifier>{bbc663df-ec65-4cfd-aa2e-653184a84e1f}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -32,6 +38,9 @@
     </ClCompile>
     <ClCompile Include="vulkan\vulkan_renderer.cpp">
       <Filter>Source Files\vulkan</Filter>
+    </ClCompile>
+    <ClCompile Include="opengl\opengl_renderer.cpp">
+      <Filter>Source Files\opengl</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -58,6 +67,9 @@
     </ClInclude>
     <ClInclude Include="vulkan\util.h">
       <Filter>Header Files\vulkan</Filter>
+    </ClInclude>
+    <ClInclude Include="opengl\opengl_renderer.h">
+      <Filter>Header Files\opengl</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
