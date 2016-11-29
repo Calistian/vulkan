@@ -71,7 +71,7 @@ int main(int argc, char** argv)
 	}
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-	auto* window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+	auto* window = glfwCreateWindow(WIDTH, HEIGHT, name.c_str(), nullptr, nullptr);
 	glfwSetKeyCallback(window, key_pressed);
 	if (name == "opengl")
 	{
