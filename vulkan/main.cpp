@@ -9,8 +9,8 @@
 
 using namespace std;
 
-#define WIDTH 1500
-#define HEIGHT 1500
+#define WIDTH 800
+#define HEIGHT 800
 #define ASPECT (float(WIDTH) / float(HEIGHT))
 
 static void key_pressed(GLFWwindow* window, int key, int scancode, int action, int mods)
@@ -28,10 +28,10 @@ static unique_ptr<scene> create_scene(const string& name)
 	if (name == "vulkan")
 		sc->projection[1][1] *= -1;
 
-	sc->point.ambiant = glm::vec4(0.2, 0.2, 0.2, 1);
-	sc->point.diffuse = glm::vec4(0.8, 0.8, 0.8, 1);
-	sc->point.specular = glm::vec4(1, 1, 1, 1);
-	sc->point.pos = glm::vec4(20, 20, 20, 1);
+	sc->point.ambiant = glm::vec4(0.4, 0.4, 0.4, 1);
+	sc->point.diffuse = glm::vec4(1, 1, 1, 1);
+	sc->point.specular = glm::vec4(0.2, 0.2, 0.2, 1);
+	sc->point.pos = glm::vec4(0, 20, 0, 1);
 	sc->point.attenuation = glm::vec4(1, 0, 0, 0);
 	sc->eye = glm::vec4(20, 20, 20, 1);
 
@@ -42,7 +42,7 @@ static unique_ptr<scene> create_scene(const string& name)
 	venus.material.ambiant = glm::vec4(1, 1, 1, 1);
 	venus.material.diffuse = glm::vec4(1, 1, 1, 1);
 	venus.material.specular = glm::vec4(1, 1, 1, 1);
-	venus.material.hardness.x = 50.f;
+	venus.material.hardness.x = 5.f;
 
 	venus.translate(glm::vec3(0, -5, 0));
 
@@ -53,7 +53,7 @@ static unique_ptr<scene> create_scene(const string& name)
 
 int main(int argc, char** argv)
 {
-	string name = "vulkan";
+	string name = "opengl";
 
 	if (argc >= 2)
 		name = argv[1];
@@ -115,7 +115,7 @@ int main(int argc, char** argv)
 
 		counter++;
 		total += float(render_end - render_begin) / CLOCKS_PER_SEC;
-		if (counter == 100)
+		if (total >= 5.f)
 		{
 			cout << "Time : " << total << endl;
 			cout << "Counter : " << counter << endl;
@@ -132,6 +132,5 @@ int main(int argc, char** argv)
 	rend.reset();
 	glfwDestroyWindow(window);
 	glfwTerminate();
-	system("pause");
 	return 0;
 }

@@ -44,7 +44,7 @@ vec4 point_light()
 
 	vec4 dir = vec4(position, 1) - ubo.point.pos;
 	float dist = length(dir);
-	dir = -normalize(dir);
+	dir = normalize(dir);
 	float a = dot(dir, vec4(normal, 0));
 	result += a * ubo.material.diffuse * ubo.point.diffuse / (ubo.point.attenuation[0] + ubo.point.attenuation[1] * dist + ubo.point.attenuation[2] * dist * dist);
 

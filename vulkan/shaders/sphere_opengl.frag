@@ -42,7 +42,7 @@ vec4 point_light()
 
 	vec4 V = vec4(position, 1) - point.pos;
 	dist = length(V);
-	V = normalize(V);
+	V = -normalize(V);
 	vec3 R = reflect(vec3(V), normal);
 	vec4 E = normalize(vec4(position, 1) - eye);
 	a = dot(R, vec3(E));
