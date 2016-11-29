@@ -53,7 +53,7 @@ static unique_ptr<scene> create_scene(const string& name)
 
 int main(int argc, char** argv)
 {
-	string name = "opengl";
+	string name = "vulkan";
 
 	if (argc >= 2)
 		name = argv[1];
