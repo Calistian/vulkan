@@ -9,8 +9,8 @@
 
 using namespace std;
 
-#define WIDTH 800
-#define HEIGHT 800
+#define WIDTH 1700
+#define HEIGHT 1700
 #define ASPECT (float(WIDTH) / float(HEIGHT))
 
 static void key_pressed(GLFWwindow* window, int key, int scancode, int action, int mods)
