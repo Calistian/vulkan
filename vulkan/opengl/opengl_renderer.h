@@ -5,6 +5,9 @@
 
 namespace opengl
 {
+	/**
+	 * Renderer for OpenGL
+	 */
 	class opengl_renderer : public renderer
 	{
 	public:

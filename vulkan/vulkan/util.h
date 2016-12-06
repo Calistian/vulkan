@@ -2,6 +2,7 @@
 
 #include <vulkan/vulkan.hpp>
 
+/// Gets a function pointer for an instance function (useful for extensions)
 template<typename T>
 T getProcAddress(const vk::Instance& instance, const char* name)
 {

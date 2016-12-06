@@ -7,6 +7,9 @@
 
 namespace vulkan
 {
+	/**
+	 * Renderer for Vulkan
+	 */
 	class vulkan_renderer : public renderer
 	{
 	public:
@@ -25,6 +28,7 @@ namespace vulkan
 
 	private:
 
+		/// Creates a shader from a source file
 		vk::PipelineShaderStageCreateInfo create_shader(const std::string& source, vk::ShaderStageFlagBits stage);
 
 		bool _debug;
